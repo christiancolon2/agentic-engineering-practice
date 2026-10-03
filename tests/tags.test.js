@@ -129,3 +129,53 @@ describe('DELETE /tasks/:id/tags/:tagId', () => {
     expect(res.body.error).toBe('Tag not applied to this task');
   });
 });
+
+describe('POST /tags details', () => {
+  test('rejects a name that is not text', async () => {
+    const res = await request(app).post('/tags').send({ name: 42 });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('name is required');
+  });
+});
+
+describe('POST /tasks/:id/tags validation order', () => {
+  test('checks that the task exists before checking the tag id', async () => {
+    const res = await request(app).post('/tasks/999/tags').send({});
+    expect(res.status).toBe(404);
+    expect(res.body.error).toBe('Task not found');
+  });
+
+  test('accepts the tag id as a numeric string', async () => {
+    const tagId = db.prepare("INSERT INTO tags (name) VALUES ('feature')").run().lastInsertRowid;
+    const res = await request(app).post('/tasks/1/tags').send({ tag_id: String(tagId) });
+    expect(res.status).toBe(201);
+    expect(res.body).toEqual({ task_id: 1, tag_id: Number(tagId) });
+  });
+
+  test('lets the same tag be applied to different tasks', async () => {
+    db.prepare("INSERT INTO tasks (id, title, project_id) VALUES (2, 'Task B', 1)").run();
+    const tagId = db.prepare("INSERT INTO tags (name) VALUES ('shared')").run().lastInsertRowid;
+    const first = await request(app).post('/tasks/1/tags').send({ tag_id: tagId });
+    const second = await request(app).post('/tasks/2/tags').send({ tag_id: tagId });
+    expect(first.status).toBe(201);
+    expect(second.status).toBe(201);
+  });
+
+  test('shows the applied tag on the task', async () => {
+    const tagId = db.prepare("INSERT INTO tags (name) VALUES ('visible')").run().lastInsertRowid;
+    await request(app).post('/tasks/1/tags').send({ tag_id: tagId });
+    const res = await request(app).get('/tasks/1');
+    expect(res.body.tags.map((t) => t.name)).toEqual(['visible']);
+  });
+});
+
+describe('DELETE /tasks/:id/tags/:tagId scoping', () => {
+  test('only removes the tag from the requested task', async () => {
+    db.prepare("INSERT INTO tasks (id, title, project_id) VALUES (2, 'Task B', 1)").run();
+    const tagId = db.prepare("INSERT INTO tags (name) VALUES ('keep')").run().lastInsertRowid;
+    db.prepare('INSERT INTO task_tags (task_id, tag_id) VALUES (1, ?), (2, ?)').run(tagId, tagId);
+    await request(app).delete(`/tasks/1/tags/${tagId}`);
+    const remaining = db.prepare('SELECT task_id FROM task_tags').all();
+    expect(remaining).toEqual([{ task_id: 2 }]);
+  });
+});
