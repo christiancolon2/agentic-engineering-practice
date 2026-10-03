@@ -9,7 +9,7 @@ npm install
 npm run db:seed        # create schema + sample data in taskr.db
 npm run db:reset       # rm taskr.db and re-seed
 npm run dev            # node --watch src/index.js (port 3000, GET /health to verify)
-npm start
+npm start              # node src/index.js
 npm test               # jest
 npx jest tests/tasks.test.js               # single file
 npx jest tests/tasks.test.js -t "returns all tasks"   # single test
@@ -19,11 +19,11 @@ No linter or formatter is configured.
 
 ## Layering rules
 
-Requests flow **route → service → query**. Each layer has one job:
+Requests flow **route → service → query → database connection**: routes call services, services call queries, and queries call the connection in `src/db/connection.js`. Each layer has one job:
 
 - **Routes** (`src/routes/`) read `req`, call one service function, and send the response. No validation, SQL or business rules. Errors go through `next(err)`.
 - **Services** (`src/services/`) hold validation, business rules and error mapping. They throw plain `{ status, message }` objects (including 404s, 409s from UNIQUE violations, etc.). They call `src/db/queries/*` and never touch the `db` connection directly.
-- **Queries** (`src/db/queries/`) hold SQL only: no HTTP concepts, no validation, no `status` codes.
+- **Queries** (`src/db/queries/`) hold SQL only: no HTTP concepts, no validation, no `status` codes. They are the only layer that imports the `db` connection.
 
 ## Never do these things
 
@@ -32,7 +32,6 @@ Requests flow **route → service → query**. Each layer has one job:
 - Never put business logic or validation in a route file.
 - Never add a utility to `src/utils/` without first checking whether it belongs in a more specific module (a service, a query, or middleware).
 - Never create a circular import between layers. Dependencies only point down: routes → services → queries → connection. Services may call other resources' queries (e.g. the tasks service reads projects and users), but not another resource's service for data access.
-- File names are kebab-case, lowercase.
 
 ## Context files
 
@@ -41,7 +40,7 @@ Read the relevant file before starting the task:
 - `context/api-conventions.md` — for any task involving API routes or endpoints.
 - `context/testing-standards.md` — for any task involving tests or test coverage.
 
-## Architecture
+## Folder structure
 
 Express 5 + `better-sqlite3` REST API (users, projects, tasks, comments, tags), CommonJS.
 
@@ -73,6 +72,14 @@ Routing notes:
 - Routers are mounted in `src/index.js`. Comments and tag assignment are nested under tasks (`/tasks/:id/comments`, `/tasks/:id/tags`); their routers use `Router({ mergeParams: true })` and are mounted before `/tasks`.
 - `authenticate` is only applied to `DELETE /users/:id` and `DELETE /projects/:id`.
 - Email is sent from the users service through `services/notifications.js`.
+
+## Naming conventions
+
+- **All files use kebab-case**, lowercase, with the `.js` extension: `error-handler.js`, `connection.js`, `users.js`. Never use camelCase or PascalCase file names.
+- Route, service and query files are named after the resource in **lowercase plural** (`tasks.js`, `users.js`), and the same name is used in all three layers: `src/routes/tasks.js`, `src/services/tasks.js`, `src/db/queries/tasks.js`. Utility routes with no resource behind them (`root.js`, `health.js`) are the exception.
+- Routers are exported by name as `<resource>Router` (`tasksRouter`), not as a default export.
+- Test files are `tests/<resource>.test.js`.
+- Inside files, JavaScript identifiers are camelCase. Request body fields, query parameters and database columns stay snake_case (`project_id`, `page_size`).
 
 ## Preserved behaviors that look like bugs
 
