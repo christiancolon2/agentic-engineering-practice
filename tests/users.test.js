@@ -163,3 +163,13 @@ describe('DELETE /users/:id', () => {
     expect(res.body.error).toBe('User not found');
   });
 });
+
+describe('PUT /users/:id validation', () => {
+  test('accepts an email that is not a valid address', async () => {
+    const created = await request(app).post('/users').send({ name: 'Loose', email: 'loose@test.com' });
+    const res = await request(app).put(`/users/${created.body.id}`).send({ email: 'not-an-email' });
+    // Current behavior: updates are not validated the way creation is.
+    expect(res.status).toBe(200);
+    expect(res.body.email).toBe('not-an-email');
+  });
+});

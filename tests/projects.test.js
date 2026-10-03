@@ -201,3 +201,13 @@ describe('DELETE /projects/:id details', () => {
     expect(res.body.error).toMatch(/FOREIGN KEY/);
   });
 });
+
+describe('PUT /projects/:id validation', () => {
+  test('accepts a blank name', async () => {
+    const created = await request(app).post('/projects').send({ name: 'Named' });
+    const res = await request(app).put(`/projects/${created.body.id}`).send({ name: '' });
+    // Current behavior: updates are not validated the way creation is.
+    expect(res.status).toBe(200);
+    expect(res.body.name).toBe('');
+  });
+});
