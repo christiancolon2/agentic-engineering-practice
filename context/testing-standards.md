@@ -6,14 +6,13 @@ Follow these standards whenever you write or change tests for the Taskr API.
 
 - Use the resource name in lowercase: `tasks.test.js`, `projects.test.js`, `users.test.js`.
 - Put test files in `tests/`.
-- Do not copy the older inconsistent names (`userTest.js`, `test-projects.js`).
 - Jest's `testMatch` in `package.json` is explicit. A file named `resource.test.js` in `tests/` matches `tests/*.test.js` and runs without config changes.
 
 ## 2. Use Jest and supertest against an in-memory SQLite database
 
 - Use `jest` as the test runner and `supertest` to exercise the app over HTTP. Import the app from the entry point, which doesn't listen when imported.
 - Set `process.env.NODE_ENV = 'test'` **before** requiring the app or the DB module. This switches the DB to `:memory:`, so tests never touch `taskr.db` or any external service.
-- Create tables with `createSchema` from `tests/schema.js`.
+- Create tables with `createSchema` from `src/db/schema.js`, the same module the seed script uses.
 - Wipe and reseed tables in `beforeEach` so every test starts from the same known state, with user id 1 and project id 1.
 - Do not mock the database or the HTTP layer. Test through supertest against the real app.
 
@@ -21,21 +20,21 @@ Follow these standards whenever you write or change tests for the Taskr API.
 process.env.NODE_ENV = 'test';
 
 const request = require('supertest');
-const app = require('../index');
-const db = require('../DB');
-const { createSchema } = require('./schema');
+const app = require('../src/index');
+const { db } = require('../src/db/connection');
+const { createSchema } = require('../src/db/schema');
 
 beforeAll(() => {
   createSchema(db);
 });
 
 beforeEach(() => {
-  db.exec('DELETE FROM tasks; DELETE FROM projects; DELETE FROM users;');
+  db.exec('DELETE FROM task_tags; DELETE FROM comments; DELETE FROM tasks; DELETE FROM projects; DELETE FROM users; DELETE FROM tags;');
   // reseed user id 1 and project id 1
 });
 ```
 
-If you change a table, update both `tests/schema.js` and `db/seed.js` so they stay in sync.
+If you change a table, update `src/db/schema.js`. It is the only copy of the schema, so the seed and the tests stay in sync automatically.
 
 ## 3. Cover the happy path and at least two error cases per endpoint
 
@@ -85,8 +84,8 @@ Use `describe` blocks named after the endpoint, such as `describe('POST /tasks',
 ## Checklist
 
 - [ ] File is `tests/<resource>.test.js` (lowercase)
-- [ ] `NODE_ENV = 'test'` is set before requiring `../index` or `../DB`
-- [ ] Tables are created with `createSchema` and reseeded in `beforeEach`
+- [ ] `NODE_ENV = 'test'` is set before requiring `../src/index` or `../src/db/connection`
+- [ ] Tables are created with `createSchema` (from `src/db/schema.js`) and reseeded in `beforeEach`
 - [ ] Tests use supertest against the real app, with no mocks of the DB
 - [ ] Every endpoint has a happy path and at least two error cases
 - [ ] Descriptions are plain English and say what the endpoint does
