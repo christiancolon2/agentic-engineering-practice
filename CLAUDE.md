@@ -32,6 +32,13 @@ This codebase has intentional structural problems that will be addressed in an u
 - Never add new utility functions to `utils.js` without first checking whether they belong in a more specific module.
 - Never import from files in the `misc/` directory. That code is dead and scheduled for removal.
 
+## Context files
+
+Read the relevant file before starting the task:
+
+- `context/api-conventions.md` — for any task involving API routes or endpoints.
+- `context/testing-standards.md` — for any task involving tests or test coverage.
+
 ## Architecture
 
 Express 5 + `better-sqlite3` REST API (users, projects, tasks, comments, tags). Flat layout, no `src/` dir. The sections below describe the current state, warts included.
