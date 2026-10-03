@@ -102,3 +102,64 @@ describe('User endpoints', () => {
     expect(res.body).toHaveLength(2);
   });
 });
+
+describe('POST /users validation and side effects', () => {
+  test('rejects a malformed email address', async () => {
+    const res = await request(app).post('/users').send({ name: 'Bad Email', email: 'not-an-email' });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('Invalid email address');
+  });
+
+  test('rejects a blank name with a clear message', async () => {
+    const res = await request(app).post('/users').send({ name: '  ', email: 'blank@test.com' });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('name is required');
+  });
+
+  test('reports a duplicate email with a clear message', async () => {
+    await request(app).post('/users').send({ name: 'Alice', email: 'dup2@test.com' });
+    const res = await request(app).post('/users').send({ name: 'Alice Again', email: 'dup2@test.com' });
+    expect(res.status).toBe(409);
+    expect(res.body.error).toBe('email already exists');
+  });
+
+  test('sends a welcome email to the new user', async () => {
+    const log = jest.spyOn(console, 'log').mockImplementation(() => {});
+    await request(app).post('/users').send({ name: 'Welcome Me', email: 'welcome@test.com' });
+    expect(log).toHaveBeenCalledWith('[EMAIL] Sending to:', 'welcome@test.com', '| Subject:', 'Welcome to Taskr!');
+    log.mockRestore();
+  });
+});
+
+describe('PUT /users/:id', () => {
+  test('returns 404 when the user does not exist', async () => {
+    const res = await request(app).put('/users/99999').send({ name: 'Ghost' });
+    expect(res.status).toBe(404);
+    expect(res.body.error).toBe('User not found');
+  });
+
+  test('keeps the existing values for fields that are not sent', async () => {
+    const created = await request(app).post('/users').send({ name: 'Keep Name', email: 'keep@test.com' });
+    const res = await request(app).put(`/users/${created.body.id}`).send({ email: 'changed@test.com' });
+    expect(res.status).toBe(200);
+    expect(res.body.name).toBe('Keep Name');
+    expect(res.body.email).toBe('changed@test.com');
+  });
+
+  test('fails when the new email belongs to another user', async () => {
+    await request(app).post('/users').send({ name: 'First', email: 'first@test.com' });
+    const second = await request(app).post('/users').send({ name: 'Second', email: 'second@test.com' });
+    const res = await request(app).put(`/users/${second.body.id}`).send({ email: 'first@test.com' });
+    // Current behavior: the database error surfaces as a 500 rather than a 409.
+    expect(res.status).toBe(500);
+    expect(res.body.error).toMatch(/UNIQUE/);
+  });
+});
+
+describe('DELETE /users/:id', () => {
+  test('returns 404 when the user does not exist', async () => {
+    const res = await request(app).delete('/users/99999').set('x-api-key', 'dev-key');
+    expect(res.status).toBe(404);
+    expect(res.body.error).toBe('User not found');
+  });
+});

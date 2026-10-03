@@ -14,73 +14,14 @@ const express = require('express');
 const router = express.Router();
 const { db } = require('./src/db/connection');
 const { authenticate } = require('./src/middleware/auth');
-const UserController = require('./UserController');
 const { getTasks, getTaskById } = require('./get-tasks');
-const { validateEmail, isNonEmptyString } = require('./src/utils/validation');
+const { isNonEmptyString } = require('./src/utils/validation');
 const { VALID_TASK_STATUSES } = require('./src/utils/constants');
 
 // ─── Health ──────────────────────────────────────────────────────────────────
 
 router.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
-});
-
-// ─── Users ───────────────────────────────────────────────────────────────────
-//
-// User routes delegate to UserController, which is inconsistent with every
-// other resource that uses inline DB queries. This was added later when someone
-// started extracting logic but only did it for users.
-
-router.get('/users', (req, res) => {
-  try {
-    const users = UserController.listUsers();
-    res.json(users);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-router.post('/users', async (req, res) => {
-  const { name, email } = req.body;
-  if (!name || !isNonEmptyString(name)) {
-    return res.status(400).json({ error: 'name is required' });
-  }
-  if (!email || !isNonEmptyString(email)) {
-    return res.status(400).json({ error: 'email is required' });
-  }
-  try {
-    const user = await UserController.createUser(name, email);
-    res.status(201).json(user);
-  } catch (err) {
-    if (err.message && err.message.includes('UNIQUE')) {
-      return res.status(409).json({ error: 'email already exists' });
-    }
-    res.status(err.status || 500).json({ error: err.message });
-  }
-});
-
-router.get('/users/:id', (req, res) => {
-  const user = UserController.getUserById(parseInt(req.params.id));
-  if (!user) return res.status(404).json({ error: 'User not found' });
-  res.json(user);
-});
-
-router.put('/users/:id', async (req, res) => {
-  try {
-    const user = await UserController.updateUser(parseInt(req.params.id), req.body);
-    res.json(user);
-  } catch (err) {
-    res.status(err.status || 500).json({ error: err.message });
-  }
-});
-
-router.delete('/users/:id', authenticate, async (req, res) => {
-  try {
-    const result = await UserController.deleteUser(parseInt(req.params.id));
-    res.json(result);
-  } catch (err) {
-    res.status(err.status || 500).json({ error: err.message });
-  }
 });
 
 // ─── Projects ────────────────────────────────────────────────────────────────
