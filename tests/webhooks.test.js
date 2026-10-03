@@ -1,7 +1,7 @@
 process.env.NODE_ENV = 'test';
 
 const request = require('supertest');
-const app = require('../index');
+const app = require('../src/index');
 
 describe('POST /webhooks/task-update', () => {
   test('acknowledges a webhook payload', async () => {

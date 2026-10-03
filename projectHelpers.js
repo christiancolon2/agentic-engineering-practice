@@ -1,4 +1,4 @@
-const { db } = require('./DB');
+const { db } = require('./src/db/connection');
 
 function getProjectStats(projectId) {
   const rows = db.prepare(

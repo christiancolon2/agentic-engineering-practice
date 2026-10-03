@@ -1,4 +1,4 @@
-const { db } = require('./DB');
+const { db } = require('./src/db/connection');
 
 function getTasks({ status, projectId, assigneeId, limit = 20, offset = 0 } = {}) {
   let query = 'SELECT * FROM tasks';

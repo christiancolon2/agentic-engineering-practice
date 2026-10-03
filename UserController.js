@@ -1,6 +1,6 @@
-const { db } = require('./DB');
+const { db } = require('./src/db/connection');
 const { sendEmail } = require('./sendEmail');
-const { validateEmail } = require('./utils');
+const { validateEmail } = require('./src/utils/validation');
 
 async function createUser(name, email) {
   if (!validateEmail(email)) {
